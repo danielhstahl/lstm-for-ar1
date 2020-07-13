@@ -35,7 +35,7 @@ def train_model(
     ts_data_train = ts_data_lookback[:num_train]
     ts_data_test = ts_data_lookback[num_train:]
     ts_data_actual = ts_data[
-        (num_train + 1) :
+        (len(ts_data) + 1 - num_test) :
     ]  # need "+1" since test is fully new, including "base" element.
     # "online mode" with batch_size=1.  Not sure how batch_size other than 1 would work with timeseries
     model.fit(
@@ -46,7 +46,11 @@ def train_model(
     print(ts_data_test.shape)
     print(len(ts_data_actual))
     print(num_train)
-    return scaler.inverse_transform(model.predict(ts_data_test[:-1])), ts_data_actual
+    predictions = scaler.inverse_transform(model.predict(ts_data_test[:-1]))
+    print(len(predictions))
+    print(len(ts_data_actual))
+    assert len(predictions) == len(ts_data_actual)
+    return predictions, ts_data_actual
 
     # return model
 
@@ -61,18 +65,15 @@ def main():
 
     ts2 = [[x] for x in get_ar_ts(alpha, beta, sigma, x0, 1000)]
 
-    ts3 = [[x] for x in get_ar_ts(alpha, beta, sigma, x0, 10000)]
+    # ts3 = [[x] for x in get_ar_ts(alpha, beta, sigma, x0, 10000)]
 
     look_back = [1, 10]  ## lookback>1 shouldn't make a difference, since DGP is ar(1)
-    series_lookback = itertools.product(
-        [(ts1, "ts1"), (ts2, "ts2"), (ts3, "ts3")], look_back
-    )
+    series_lookback = itertools.product([(ts1, "ts1"), (ts2, "ts2")], look_back)
     train_data_perc = 0.9
     results = [
         (*train_model(look_back, ts[0], train_data_perc), ts[1], look_back)
         for ts, look_back in series_lookback
     ]
-
     for predict, actual, tsname, look_back in results:
         print(
             f"time series {tsname} with look back {look_back}: {math.sqrt(mean_squared_error(predict, actual))}"
